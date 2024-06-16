@@ -29,7 +29,7 @@ function account.genSalt()
 
 	local function srandom(length, charset)
 		local charset = charset or "."
-		if CharSet == "" then
+		if charset == "" then
 			return ""
 		else
 			local result = {}
@@ -86,10 +86,6 @@ function account.new(password, pos)
 end
 
 function account.delete(id)
-	local meta = minetest.get_meta(account.pos[id])
-	meta:set_string("infotext", "Password Chest (unconfigured)")
-	meta:set_string("owner", "")
-	meta:set_int("id", 0)
 	for i = id, account.counter - 1, 1 do
 		account.password[i] = account.password[i + 1]
 		account.salt[i] = account.salt[i + 1]
@@ -110,6 +106,13 @@ function account.change(id, old_password, new_password)
 	account.password[id] = new_password_hashed
 	account.save()
 	return true
+end
+
+function account.reset()
+    account.password = {}
+    account.salt = {}
+    account.pos = {}
+    account.counter = 0
 end
 
 function account.check(id, password)
