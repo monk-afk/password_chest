@@ -1,3 +1,5 @@
+# STILL MISSING SECURITY FEATURE - see issue #1
+
 # Password Chest
 
 ![Screenshot](http://i.imgur.com/m2I6uhC.png)
