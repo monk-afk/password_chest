@@ -4,20 +4,20 @@
 dofile(minetest.get_modpath("password_chest") .. "/account.lua")
 
 minetest.register_chatcommand("password_chest", {
-	params = "[/reset/database]",
+	params = "[reset|database]",
 	description = "Use \"/password_chest reset\" to reset all of the password chests and \"/password_chest database\" to get the password database.",
 	privs = {
-		admin = true
+		server = true
 	},
 	func = function(name, param)
 		if param == "reset" then
-			os.remove(minetest.get_worldpath() .. "password_chest_data.txt")
 			for i = 1, account.counter, 1 do
 				local meta = minetest.get_meta(account.pos[i])
 				meta:set_string("infotext", "Password Chest (unconfigured)")
 				meta:set_string("owner", "")
 				meta:set_int("id", 0)
 			end
+      account.reset()
 			return true, "Password Chest Database has been reset successfully. All password chests will become unconfigured."
 		elseif param == "database" then
 			minetest.show_formspec(name, "password_chest:database", account.formspec())
@@ -127,67 +127,63 @@ minetest.register_node("password_chest:password_chest", {
 							"password_chest:password_chest_formspec",
 							password_chest_formspec(pos)
 						)
-						minetest.register_on_player_receive_fields(
-							function(player, formname, fields)
-								if formname ~= "password_chest:password_chest_formspec" then
-									return false
-								end
-								if fields.change_password then
-									minetest.show_formspec(player:get_player_name(), "password_chest:change_password", 
-										"size[5,8]" ..
-										"label[0,0;Change Password]" ..
-										"pwdfield[0.5,2;4.5,1;old_password;Old Password:]" ..
-										"pwdfield[0.5,4;4.5,1;new_password;New Password:]" ..
-										"pwdfield[0.5,6;4.5,1;confirm_password;Confirm Password:]" ..
-										"button_exit[0,7;2,1;save;Save]"
-									)
-									minetest.register_on_player_receive_fields(
-										function(player, formname, fields)
-											if formname ~= "password_chest:change_password" then
-												return false
-											end
-											if fields.old_password == nil then
-												return false
-											end
-											if fields.old_password == "" then
-												return false
-											end
-											if fields.new_password ~= fields.confirm_password then
-												minetest.chat_send_player(player:get_player_name(), "Could not confirm password. Please try again.")
-												return false
-											end
-											if not account.change(meta:get_int("id"), fields.old_password, fields.new_password) then
-												minetest.chat_send_player(player:get_player_name(), "Your password is incorrect. Please type again.")
-												return false
-											end
-											return true
-										end
-									)
-								end
-								return true
-							end
-						)
+						minetest.register_on_player_receive_fields(function(player, formname, fields)
+              if formname ~= "password_chest:password_chest_formspec" then
+                return false
+              end
+              if fields.change_password then
+                minetest.show_formspec(player:get_player_name(), "password_chest:change_password", 
+                  "size[5,8]" ..
+                  "label[0,0;Change Password]" ..
+                  "pwdfield[0.5,2;4.5,1;old_password;Old Password:]" ..
+                  "pwdfield[0.5,4;4.5,1;new_password;New Password:]" ..
+                  "pwdfield[0.5,6;4.5,1;confirm_password;Confirm Password:]" ..
+                  "button_exit[0,7;2,1;save;Save]"
+                )
+                minetest.register_on_player_receive_fields(function(player, formname, fields)
+                  if formname == "password_chest:change_password" then
+                    if fields.old_password and #fields.old_password > 0 then
+                      if fields.new_password and #fields.new_password > 0 then
+                        if fields.new_password == fields.confirm_password then
+                          if account.change(meta:get_int("id"), fields.old_password, fields.new_password) then
+                            return true, minetest.chat_send_player(player:get_player_name(), "Updated password chest.")
+                          end
+                          minetest.chat_send_player(player:get_player_name(), "Your password is incorrect. Please type again.")
+                          return false
+                        end
+                        minetest.chat_send_player(player:get_player_name(), "Password confirmation mismatch.")
+                        return false
+                      end
+                      minetest.chat_send_player(player:get_player_name(), "Password field is empty.")
+                      return false
+                    end
+                    minetest.chat_send_player(player:get_player_name(), "Password field is empty.")
+                    return false
+                  end
+                end)
+              end
+            end)
 					else
 						minetest.chat_send_player(player:get_player_name(), "Your password is incorrect. Please type again.")
 					end
 					return true
 				end
 			)
-			end
 		end
 	end,
 	can_dig = function(pos, player)
-		local inv = minetest.get_inventory(pos)
-		return inv:is_empty() and player:get_player_name() == meta:get_string("owner")
+		local meta = minetest.get_meta(pos);
+		local inv = meta:get_inventory()
+		return inv:is_empty("main") and player:get_player_name() == meta:get_string("owner")
 	end,
 	after_dig_node = function(pos, oldnode, oldmetadata, digger)
-		account.delete(oldmetadata:get_int("id"))
+		account.delete(oldmetadata.fields.id)
 		return true
 	end
 })
 
 minetest.register_craft({
-	output = "password_chest:password_chest 1",
+	output = "password_chest:password_chest",
 	recipe = {
 		{"group:wood", "default:mese", "group:wood"},
 		{"group:wood", "default:gold_ingot", "group:wood"},

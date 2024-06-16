@@ -1,1 +1,0 @@
-Adds password chest that can protect your items.
